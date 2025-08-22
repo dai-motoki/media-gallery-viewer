@@ -1,0 +1,22 @@
+{
+  "name": "media-gallery-viewer",
+  "version": "1.0.0",
+  "description": "A dynamic media gallery viewer with server-side file scanning",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "media",
+    "gallery",
+    "viewer",
+    "file-browser"
+  ],
+  "author": "dai-motoki",
+  "license": "MIT",
+  "dependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
