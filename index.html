@@ -732,6 +732,40 @@
         let currentPath = '';
         let selectedFile = null;
 
+        // APIベースURLを取得
+        let apiBaseUrl = '';
+        
+        async function getServerConfig() {
+            // まず現在のポートで試す（HTMLが同じサーバーから配信されている場合）
+            try {
+                const currentPort = window.location.port || '80';
+                const response = await fetch(`http://localhost:${currentPort}/api/config`);
+                if (response.ok) {
+                    const config = await response.json();
+                    apiBaseUrl = `http://localhost:${config.port}`;
+                    return true;
+                }
+            } catch (e) {
+                // 現在のポートで失敗
+            }
+            
+            // 一般的なポートを試す
+            const commonPorts = [7777, 8080, 3000, 3333];
+            for (const port of commonPorts) {
+                try {
+                    const response = await fetch(`http://localhost:${port}/api/config`);
+                    if (response.ok) {
+                        const config = await response.json();
+                        apiBaseUrl = `http://localhost:${config.port}`;
+                        return true;
+                    }
+                } catch (e) {
+                    // このポートでは接続できない
+                }
+            }
+            return false;
+        }
+        
         // ディレクトリをスキャン
         async function scanDirectory() {
             const folderTree = document.getElementById('folderTree');
@@ -741,9 +775,20 @@
             folderTree.innerHTML = '<div class="loading">スキャン中...</div>';
             grid.innerHTML = '<div class="loading">メディアファイルを読み込み中...</div>';
             
+            // サーバー設定を取得
+            if (!apiBaseUrl) {
+                const configSuccess = await getServerConfig();
+                if (!configSuccess) {
+                    console.error('Could not connect to server');
+                    folderTree.innerHTML = '<div class="error">サーバーに接続できません</div>';
+                    showFileInput();
+                    return;
+                }
+            }
+            
             try {
                 // Node.jsサーバーから取得
-                const response = await fetch('http://localhost:3333/api/scan');
+                const response = await fetch(`${apiBaseUrl}/api/scan`);
                 
                 if (!response.ok) {
                     throw new Error('Server response not ok');
@@ -1043,7 +1088,7 @@
             grid.innerHTML = '';
 
             if (files.length === 0) {
-                grid.innerHTML = '<div class="error"><div>メディアファイルが見つかりません</div><div class="error-message">Node.jsサーバーを起動してください: node scan-media.js</div></div>';
+                grid.innerHTML = '<div class="error"><div>メディアファイルが見つかりません</div><div class="error-message">Node.jsサーバーを起動してください: node server.js</div></div>';
                 return;
             }
 
@@ -1368,7 +1413,7 @@
                         <ol style="text-align: left; margin-top: 10px;">
                             <li>ターミナルを開く</li>
                             <li>このディレクトリに移動</li>
-                            <li>実行: <code>node scan-media.js</code></li>
+                            <li>実行: <code>node server.js</code></li>
                             <li>ページをリロード</li>
                         </ol>
                     </div>
@@ -1475,7 +1520,7 @@
         function openFile() {
             if (selectedFile) {
                 // Node.jsサーバー経由で開く必要がある
-                fetch('http://localhost:3333/api/open-file', {
+                fetch(`${apiBaseUrl}/api/open-file`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ path: selectedFile.path })
@@ -1491,7 +1536,7 @@
         function openFolder() {
             if (selectedFile) {
                 const folderPath = selectedFile.path.substring(0, selectedFile.path.lastIndexOf('/'));
-                fetch('http://localhost:3333/api/open-folder', {
+                fetch(`${apiBaseUrl}/api/open-folder`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ path: folderPath || '.' })

@@ -96,6 +96,25 @@ const server = http.createServer((req, res) => {
         return;
     }
     
+    // 設定情報のエンドポイント
+    if (req.url === '/api/config') {
+        if (!process.env.PORT || !process.env.SCAN_PATH) {
+            res.setHeader('Content-Type', 'application/json');
+            res.writeHead(500);
+            res.end(JSON.stringify({
+                error: 'Missing required environment variables: PORT and/or SCAN_PATH'
+            }));
+            return;
+        }
+        res.setHeader('Content-Type', 'application/json');
+        res.writeHead(200);
+        res.end(JSON.stringify({
+            port: process.env.PORT,
+            scanPath: process.env.SCAN_PATH
+        }));
+        return;
+    }
+    
     // 静的ファイルの配信（画像、動画、音声）
     if (req.method === 'GET' && !req.url.startsWith('/api/')) {
         // index.htmlの配信
@@ -115,7 +134,12 @@ const server = http.createServer((req, res) => {
         }
         
         // メディアファイルの配信
-        const baseDir = process.env.SCAN_PATH || process.cwd();
+        if (!process.env.SCAN_PATH) {
+            res.writeHead(500);
+            res.end('ERROR: SCAN_PATH environment variable is not set');
+            return;
+        }
+        const baseDir = process.env.SCAN_PATH;
         const filePath = decodeURIComponent(req.url.substring(1)); // 先頭の/を削除
         const fullPath = path.join(baseDir, filePath);
         
@@ -167,7 +191,12 @@ const server = http.createServer((req, res) => {
     
     if (req.url === '/api/scan' && req.method === 'GET') {
         // .envで指定された絶対パスをスキャン
-        const currentDir = process.env.SCAN_PATH || process.cwd();
+        if (!process.env.SCAN_PATH) {
+            res.writeHead(500);
+            res.end(JSON.stringify({ error: 'SCAN_PATH environment variable is not set' }));
+            return;
+        }
+        const currentDir = process.env.SCAN_PATH;
         console.log('Scanning directory:', currentDir);
         const mediaFiles = scanDirectory(currentDir);
         
@@ -185,7 +214,12 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
             try {
                 const { path: filePath } = JSON.parse(body);
-                const baseDir = process.env.SCAN_PATH || process.cwd();
+                if (!process.env.SCAN_PATH) {
+            res.writeHead(500);
+            res.end('ERROR: SCAN_PATH environment variable is not set');
+            return;
+        }
+        const baseDir = process.env.SCAN_PATH;
                 const fullPath = path.join(baseDir, filePath);
                 
                 // macOSの場合
@@ -242,7 +276,12 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
             try {
                 const { path: folderPath } = JSON.parse(body);
-                const baseDir = process.env.SCAN_PATH || process.cwd();
+                if (!process.env.SCAN_PATH) {
+            res.writeHead(500);
+            res.end('ERROR: SCAN_PATH environment variable is not set');
+            return;
+        }
+        const baseDir = process.env.SCAN_PATH;
                 const fullPath = path.join(baseDir, folderPath);
                 
                 // macOSの場合
@@ -296,7 +335,11 @@ const server = http.createServer((req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3333;
+if (!process.env.PORT) {
+    console.error('ERROR: PORT environment variable is not set');
+    process.exit(1);
+}
+const PORT = process.env.PORT;
 server.listen(PORT, () => {
     console.log(`Media scanner server running at http://localhost:${PORT}`);
     console.log(`API endpoint: http://localhost:${PORT}/api/scan`);
