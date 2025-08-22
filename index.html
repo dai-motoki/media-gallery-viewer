@@ -1445,7 +1445,7 @@
         // ファイルパスをコピー
         function copyFilePath() {
             if (selectedFile) {
-                const fullPath = process.cwd() + '/' + selectedFile.path;
+                const fullPath = '/Users/motokidaisuke/kamuicode/' + selectedFile.path;
                 navigator.clipboard.writeText(fullPath).then(() => {
                     console.log('Copied:', fullPath);
                     // 通知を表示（オプション）

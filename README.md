@@ -21,10 +21,35 @@ git clone https://github.com/dai-motoki/media-gallery-viewer.git
 cd media-gallery-viewer
 ```
 
-2. Install dependencies (optional, only if you want to use npm):
+2. No additional dependencies required - uses native Node.js modules
+
+## Configuration
+
+1. Copy the sample configuration file:
 ```bash
-npm install
+cp .env.sample .env
 ```
+
+2. Edit `.env` to set your target directory:
+```bash
+# .env file
+# Scan target absolute path
+SCAN_PATH=/path/to/your/media/directory  # Change this to your directory
+
+# Server port
+PORT=3333
+
+# Scan settings
+MAX_DEPTH=5
+EXCLUDE_DIRS=node_modules,.git,.next,dist,build,.cache
+```
+
+### Important Configuration Notes
+
+- **SCAN_PATH**: Set the absolute path to the directory you want to scan
+- **PORT**: Default is 3333, change if needed
+- **MAX_DEPTH**: How deep to scan subdirectories
+- **EXCLUDE_DIRS**: Comma-separated list of directories to exclude
 
 ## Usage
 
@@ -38,9 +63,11 @@ npm start
 ```
 
 2. Open your browser and navigate to:
-```
+```bash
 http://localhost:3333
 ```
+
+**重要**: 必ず `http://localhost:3333` 経由でアクセスしてください。`file:///` で直接HTMLファイルを開くと、画像・動画・音声が正しく表示されません。
 
 ## Features in Detail
 
@@ -61,14 +88,6 @@ http://localhost:3333
 - **Lazy Loading**: Images load as you scroll
 - **Virtual Scrolling**: Load files in batches of 50
 - **Memory Management**: Automatic cleanup of video elements
-
-## Configuration
-
-The server runs on port 3333 by default. You can modify this in `server.js`:
-
-```javascript
-const PORT = 3333; // Change this to your preferred port
-```
 
 ## Browser Support
 

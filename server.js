@@ -3,6 +3,24 @@ const path = require('path');
 const http = require('http');
 const { exec } = require('child_process');
 
+// .envファイルを読み込む（dotenvパッケージなしで実装）
+function loadEnv() {
+    try {
+        const envFile = fs.readFileSync('.env', 'utf8');
+        envFile.split('\n').forEach(line => {
+            if (line && !line.startsWith('#')) {
+                const [key, value] = line.split('=');
+                if (key && value) {
+                    process.env[key.trim()] = value.trim();
+                }
+            }
+        });
+    } catch (err) {
+        console.log('No .env file found, using defaults');
+    }
+}
+loadEnv();
+
 // メディアファイルの拡張子
 const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'];
 const videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
@@ -77,11 +95,79 @@ const server = http.createServer((req, res) => {
         return;
     }
     
+    // 静的ファイルの配信（画像、動画、音声）
+    if (req.method === 'GET' && !req.url.startsWith('/api/')) {
+        // index.htmlの配信
+        if (req.url === '/' || req.url === '/index.html') {
+            const indexPath = path.join(__dirname, 'index.html');
+            fs.readFile(indexPath, (err, data) => {
+                if (err) {
+                    res.writeHead(404);
+                    res.end('Not found');
+                    return;
+                }
+                res.setHeader('Content-Type', 'text/html');
+                res.writeHead(200);
+                res.end(data);
+            });
+            return;
+        }
+        
+        // メディアファイルの配信
+        const baseDir = process.env.SCAN_PATH || process.cwd();
+        const filePath = decodeURIComponent(req.url.substring(1)); // 先頭の/を削除
+        const fullPath = path.join(baseDir, filePath);
+        
+        // ファイルの存在確認
+        fs.stat(fullPath, (err, stats) => {
+            if (err || !stats.isFile()) {
+                res.writeHead(404);
+                res.end('File not found');
+                return;
+            }
+            
+            // MIMEタイプの設定
+            const ext = path.extname(fullPath).toLowerCase();
+            const mimeTypes = {
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.png': 'image/png',
+                '.gif': 'image/gif',
+                '.svg': 'image/svg+xml',
+                '.webp': 'image/webp',
+                '.mp4': 'video/mp4',
+                '.mov': 'video/quicktime',
+                '.avi': 'video/x-msvideo',
+                '.mkv': 'video/x-matroska',
+                '.webm': 'video/webm',
+                '.mp3': 'audio/mpeg',
+                '.wav': 'audio/wav',
+                '.ogg': 'audio/ogg',
+                '.flac': 'audio/flac',
+                '.m4a': 'audio/mp4'
+            };
+            
+            const contentType = mimeTypes[ext] || 'application/octet-stream';
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Cache-Control', 'public, max-age=3600');
+            
+            // ファイルをストリーミング
+            const stream = fs.createReadStream(fullPath);
+            stream.pipe(res);
+            stream.on('error', () => {
+                res.writeHead(500);
+                res.end('Internal server error');
+            });
+        });
+        return;
+    }
+    
     res.setHeader('Content-Type', 'application/json');
     
     if (req.url === '/api/scan' && req.method === 'GET') {
-        // 現在のディレクトリをスキャン
-        const currentDir = process.cwd();
+        // .envで指定された絶対パスをスキャン
+        const currentDir = process.env.SCAN_PATH || process.cwd();
+        console.log('Scanning directory:', currentDir);
         const mediaFiles = scanDirectory(currentDir);
         
         res.writeHead(200);
@@ -98,7 +184,8 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
             try {
                 const { path: filePath } = JSON.parse(body);
-                const fullPath = path.join(process.cwd(), filePath);
+                const baseDir = process.env.SCAN_PATH || process.cwd();
+                const fullPath = path.join(baseDir, filePath);
                 
                 // macOSの場合
                 if (process.platform === 'darwin') {
@@ -154,7 +241,8 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
             try {
                 const { path: folderPath } = JSON.parse(body);
-                const fullPath = path.join(process.cwd(), folderPath);
+                const baseDir = process.env.SCAN_PATH || process.cwd();
+                const fullPath = path.join(baseDir, folderPath);
                 
                 // macOSの場合
                 if (process.platform === 'darwin') {
@@ -207,7 +295,7 @@ const server = http.createServer((req, res) => {
     }
 });
 
-const PORT = 3333;
+const PORT = process.env.PORT || 3333;
 server.listen(PORT, () => {
     console.log(`Media scanner server running at http://localhost:${PORT}`);
     console.log(`API endpoint: http://localhost:${PORT}/api/scan`);
