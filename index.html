@@ -795,7 +795,9 @@
             
             const rootName = document.createElement('span');
             rootName.className = 'tree-name';
-            rootName.textContent = 'kamuicode';
+            // basePathから最後のディレクトリ名を取得
+            const dirName = data.basePath ? data.basePath.split('/').pop() || 'Media' : 'Media';
+            rootName.textContent = dirName;
             rootLabel.appendChild(rootName);
             
             const rootCount = document.createElement('span');
@@ -1445,7 +1447,8 @@
         // ファイルパスをコピー
         function copyFilePath() {
             if (selectedFile) {
-                const fullPath = '/Users/motokidaisuke/kamuicode/' + selectedFile.path;
+                // fullPathがあればそれを使用、なければpathを使用
+                const fullPath = selectedFile.fullPath || selectedFile.path;
                 navigator.clipboard.writeText(fullPath).then(() => {
                     console.log('Copied:', fullPath);
                     // 通知を表示（オプション）

@@ -67,6 +67,7 @@ function scanDirectory(dirPath, baseDir = null, depth = 0, maxDepth = 3) {
                     result.files.push({
                         name: item,
                         path: relativePath,
+                        fullPath: fullPath,
                         type: type,
                         size: stat.size,
                         modified: stat.mtime
