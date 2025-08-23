@@ -278,6 +278,32 @@
             margin-right: 15px;
             border-radius: 4px;
         }
+        /* HTML thumbnail (scaled iframe) */
+        .media-item.html .media-thumbnail {
+            position: relative;
+            background: #1a1a1a;
+            overflow: hidden;
+        }
+        .html-thumb-frame {
+            position: absolute;
+            top: 0;
+            left: 0;
+            border: 0;
+            transform-origin: 0 0;
+            pointer-events: none;
+            background: white;
+        }
+        .html-thumb-fallback {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg,#364069 0%,#1b2336 100%);
+            color:#fff;
+            font-weight:700;
+            letter-spacing: 0.5px;
+        }
 
         .media-item.audio .media-thumbnail {
             display: flex;
@@ -677,6 +703,7 @@
                 <span class="tag" data-type="image">Images</span>
                 <span class="tag" data-type="video">Videos</span>
                 <span class="tag" data-type="audio">Audio</span>
+                <span class="tag" data-type="html">HTML</span>
             </div>
         </div>
     </div>
@@ -1182,6 +1209,30 @@
                             <div class="media-details">Audio</div>
                         </div>
                     `;
+                } else if (file.type === 'html') {
+                    item.className = 'media-item html';
+                    item.innerHTML = `
+                        <div class="media-thumbnail">
+                            <div class="html-thumb-fallback">HTML</div>
+                            <iframe class="html-thumb-frame" data-src="${file.path}" loading="lazy" sandbox="allow-scripts allow-forms"></iframe>
+                        </div>
+                        <div class="media-info">
+                            <div class="media-name">${file.name}</div>
+                            <div class="media-details">HTML Page</div>
+                        </div>
+                    `;
+                } else if (file.type === 'html') {
+                    item.className = 'media-item html';
+                    item.innerHTML = `
+                        <div class="media-thumbnail">
+                            <div class="html-thumb-fallback">HTML</div>
+                            <iframe class="html-thumb-frame" data-src="${file.path}" loading="lazy" sandbox="allow-scripts allow-forms"></iframe>
+                        </div>
+                        <div class="media-info">
+                            <div class="media-name">${file.name}</div>
+                            <div class="media-details">HTML Page</div>
+                        </div>
+                    `;
                 }
 
                 // 左クリックでライトボックスを開く
@@ -1212,6 +1263,8 @@
             });
             
             grid.appendChild(fragment);
+            // Setup scaled HTML thumbnails after insertion
+            setupHtmlThumbs(grid);
             
             // 残りのファイルを遅延読み込み
             if (files.length > maxInitialLoad) {
@@ -1293,6 +1346,17 @@
                         <div class="media-info">
                             <div class="media-name">${file.name}</div>
                             <div class="media-details">Audio</div>
+                        </div>
+                    `;
+                } else if (file.type === 'html') {
+                    item.className = 'media-item html';
+                    item.innerHTML = `
+                        <div class="media-thumbnail" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#364069 0%,#1b2336 100%);color:#fff;font-weight:700;">
+                            HTML
+                        </div>
+                        <div class="media-info">
+                            <div class="media-name">${file.name}</div>
+                            <div class="media-details">HTML Page</div>
                         </div>
                     `;
                 }
@@ -1379,6 +1443,12 @@
                         <div style="font-size: 5rem; margin-bottom: 20px;">🎵</div>
                         <div style="font-size: 1.2rem; margin-bottom: 20px;">${file.name}</div>
                         <audio src="${file.path}" controls autoplay style="width: 300px;"></audio>
+                    </div>
+                `;
+            } else if (file.type === 'html') {
+                content.innerHTML = `
+                    <div style="width:90vw;height:85vh;max-width:1200px;">
+                        <iframe src="${file.path}" style="width:100%;height:100%;border:0;background:#fff"></iframe>
                     </div>
                 `;
             }
@@ -1553,6 +1623,77 @@
         });
 
         // 初期化
+        function setupHtmlThumbs(root=document) {
+            const IFR_W = 1024; // virtual viewport width (reduced for perf)
+            const IFR_H = 768;  // virtual viewport height (reduced for perf)
+            const MAX_CONCURRENCY = 2;
+            let active = 0;
+            const queue = [];
+
+            function applyScale(thumb, frame) {
+                const h = thumb.clientHeight || 150;
+                const scale = h / IFR_H;
+                frame.style.width = IFR_W + 'px';
+                frame.style.height = IFR_H + 'px';
+                frame.style.transform = 'scale(' + scale + ')';
+            }
+
+            function pump() {
+                while (active < MAX_CONCURRENCY && queue.length) {
+                    const { frame, thumb, item } = queue.shift();
+                    if (!frame.isConnected) continue;
+                    active++;
+                    const fallback = thumb.querySelector('.html-thumb-fallback');
+                    const done = () => {
+                        active = Math.max(0, active - 1);
+                        pump();
+                    };
+                    // Scale before loading to avoid jank
+                    requestAnimationFrame(() => applyScale(thumb, frame));
+                    // Load with timeout fallback
+                    let settled = false;
+                    const to = setTimeout(() => {
+                        if (settled) return; settled = true;
+                        // Keep fallback visible
+                        done();
+                    }, 5000);
+                    frame.addEventListener('load', () => {
+                        if (settled) return; settled = true;
+                        clearTimeout(to);
+                        // Hide fallback when content is loaded
+                        if (fallback) fallback.style.display = 'none';
+                        done();
+                    }, { once: true });
+                    frame.src = frame.dataset.src;
+                    frame.removeAttribute('data-src');
+                }
+            }
+
+            const items = root.querySelectorAll('.media-item.html');
+            items.forEach(it => {
+                const thumb = it.querySelector('.media-thumbnail');
+                const frame = it.querySelector('.html-thumb-frame');
+                if (!thumb || !frame) return;
+
+                // Initial scale and resize handling
+                requestAnimationFrame(() => applyScale(thumb, frame));
+                window.addEventListener('resize', () => applyScale(thumb, frame), { passive: true });
+
+                if (frame.dataset.src) {
+                    const io = new IntersectionObserver((entries, obs) => {
+                        entries.forEach(en => {
+                            if (en.isIntersecting) {
+                                queue.push({ frame, thumb, item: it });
+                                pump();
+                                obs.unobserve(en.target);
+                            }
+                        });
+                    }, { rootMargin: '200px' });
+                    io.observe(it);
+                }
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             scanDirectory();
         });
