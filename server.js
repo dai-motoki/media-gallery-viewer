@@ -25,6 +25,7 @@ loadEnv();
 const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'];
 const videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
 const audioExtensions = ['mp3', 'wav', 'ogg', 'flac', 'm4a'];
+const htmlExtensions  = ['html', 'htm'];
 
 // ディレクトリをスキャンする関数
 function scanDirectory(dirPath, baseDir = null, depth = 0, maxDepth = 3) {
@@ -62,6 +63,7 @@ function scanDirectory(dirPath, baseDir = null, depth = 0, maxDepth = 3) {
                 if (imageExtensions.includes(ext)) type = 'image';
                 else if (videoExtensions.includes(ext)) type = 'video';
                 else if (audioExtensions.includes(ext)) type = 'audio';
+                else if (htmlExtensions.includes(ext)) type = 'html';
                 
                 if (type !== 'other') {
                     result.files.push({
@@ -169,7 +171,9 @@ const server = http.createServer((req, res) => {
                 '.wav': 'audio/wav',
                 '.ogg': 'audio/ogg',
                 '.flac': 'audio/flac',
-                '.m4a': 'audio/mp4'
+                '.m4a': 'audio/mp4',
+                '.html': 'text/html; charset=utf-8',
+                '.htm': 'text/html; charset=utf-8'
             };
             
             const contentType = mimeTypes[ext] || 'application/octet-stream';
